@@ -125,10 +125,10 @@ function  AcBEMInit(c,n,ConM,Nodes,BEdomain)
     # Daigonal Term for acoustics
     (Hs) = AcDiagTerm(c,n,wf,Y,Z,Ny,Nz,jacobi,LPnt,ConM,ElemId,BEdomain);
 
-    # Relative distances for static tractions
+    # Relative distances for static velocities
     (~,ys,zs,~,nys,nzs) = singDist([],Nodes,ConM,ElemId,LPnt,xi);
 
-    # Static Tractions
+    # Static velocities
     (~,Hs0) = AcFullSpace2dot5D(c,0,ys,zs,0,nys,nzs);
 
     return xi,wf,phi,Y,Z,Ny,Nz,jacobi,nodes,Hs,Hs0,LPnt;
@@ -195,7 +195,7 @@ function AcBEMsolution(matHf,matGf,matGb,matHb,Nkx,Vb)
     # Getting pressure on the the boundary
     Pb = MatHb\MatGb*Vb;
 
-    # Getting the displacement at the field Points
+    # Getting the pressure at the field Points
     Pf = -(MatHf*Pb-MatGf*Vb);
 
     return  Pf,Pb;
@@ -203,7 +203,7 @@ function AcBEMsolution(matHf,matGf,matGb,matHb,Nkx,Vb)
 end
 
 function AcIntRepEqn(Pn,Vn,LConM,LNodes,FPnt,nkx)
-    ## function to assemble the Green's Traction and Displacement matrices for fieldpoint
+    ## function to assemble the Green's velocities and pressure matrices for fieldpoint
 
     MatG = zeros(size(FPnt,1),size(LNodes,1),1,nkx);
     MatH = zeros(size(FPnt,1),size(LNodes,1),1,nkx);
@@ -212,7 +212,7 @@ function AcIntRepEqn(Pn,Vn,LConM,LNodes,FPnt,nkx)
     Vn = reshape(Vn,size(FPnt,1),2,size(LConM,1),nkx);
 
 
-    # Assembling the Green's Traction and Displacement Matrices
+    # Assembling the Green's velocities and pressure Matrices
     for i = 1:size(LConM,1)
 
         MatG[:,[LConM[i,2] LConM[i,3]],:,:] = MatG[:,[LConM[i,2] LConM[i,3]],:,:]+Pn[:,:,i,:];
@@ -228,7 +228,7 @@ end
 
 function AcIntRepEqnMat(c,n,w,kx,wf,phi,Y,Z,Ny,Nz,jacobi,FPnt,LConM)
 
-    ## function to make Green's Traction and Dispalacement  matrices for fieldpoint
+    ## function to make Green's velocities and Dispalacement  matrices for fieldpoint
 
     nkx = length(kx); kx= kx'; w=w'; # f and kx must be a column vector
     Jacobi = repeat(jacobi,1,1,1,nkx);
@@ -263,11 +263,11 @@ function AcIntRepEqnMat(c,n,w,kx,wf,phi,Y,Z,Ny,Nz,jacobi,FPnt,LConM)
         Pr = permute(Pr,[2 3 4 1]);
         Vr = permute(Vr,[2 3 4 1]);
 
-        # vectors for greens displacement on elements
+        # vectors for greens pressure on elements
         Pr1 = zeros(1,1,size(LConM,1),nkx);
         Pr2 = zeros(1,1,size(LConM,1),nkx);
 
-        # vectors for greens tractions on nodes of element
+        # vectors for greens velocities on nodes of element
         Vr1 = zeros(1,1,size(LConM,1),nkx);
         Vr2 = zeros(1,1,size(LConM,1),nkx);
 
@@ -276,20 +276,20 @@ function AcIntRepEqnMat(c,n,w,kx,wf,phi,Y,Z,Ny,Nz,jacobi,FPnt,LConM)
         # Greens displacemnet matrix element computed at second nodal point for all elements
         Pr2[:,:,:,:] = mtimesx(wf,(phi[:,2,:,:].*Pr[:,:,:,:].*Jacobi[:,:,:,:]));
 
-        # Greens traction matrix element computed at first nodal point for all elements
+        # Greens velocities matrix element computed at first nodal point for all elements
         Vr1[:,:,:,:] = mtimesx(wf,(phi[:,1,:,:].*Vr[:,:,:,:].*Jacobi[:,:,:,:]));
-        # Greens traction matrix element computed at second nodal point for all elements
+        # Greens velocities matrix element computed at second nodal point for all elements
         Vr2[:,:,:,:] = mtimesx(wf,(phi[:,2,:,:].*Vr[:,:,:,:].*Jacobi[:,:,:,:]));
 
-        # converting displacement in 3d matrix for speed
+        # converting pressure in 3d matrix for speed
         Pr1=Pr1[:,:,:];
         Pr2=Pr2[:,:,:];
 
-        # converting traction in 3d matrix for speed
+        # converting velocities in 3d matrix for speed
         Vr1=Vr1[:,:,:];
         Vr2=Vr2[:,:,:];
 
-        # the final matrices of pressure and displacement
+        # the final matrices of pressure and pressure
         Pn[i,:,:] = [Pr1  Pr2];
 
         Vn[i,:,:] = [Vr1  Vr2];
@@ -310,14 +310,14 @@ function acBEBndMatrices(c,n,w,kx,xi,wf,phi,Y,Z,Ny,Nz,Vs0,jacobi,nodes,LPnt,FPnt
     #Size of kx vector
     nkx = length(kx);
 
-    # Boundary Matrices for Greens traction and displacement on Boundary
+    # Boundary Matrices for Greens velocities and pressure on Boundary
     (MatGb,MatHb) = AcBndIntEqnInt(Vs,Pn,Vn,Lpnt,CPntId,LNodes,LConM,nkx);
 
     if !isempty(FPnt)
-        # Getting Greens traction and displacement for fieldpoint
+        # Getting Greens velocities and pressure for fieldpoint
         (Pn,Vn)=AcIntRepEqnMat(c,n,w,kx,wf,phi,Y,Z,Ny,Nz,jacobi,FPnt,LConM);
 
-        # Building the traction and displacement matrices for fieldpoint
+        # Building the velocities and pressure matrices for fieldpoint
         (MatGf,MatHf)=AcIntRepEqn(Pn,Vn,LConM,LNodes,FPnt,nkx);
 
     else
@@ -330,7 +330,7 @@ function acBEBndMatrices(c,n,w,kx,xi,wf,phi,Y,Z,Ny,Nz,Vs0,jacobi,nodes,LPnt,FPnt
 end
 
 function AcBndIntEqnInt(Vs,Pn,Vn,Lchf,CPntId,LNodes,LConM,nkx)
-    ## function to assemble the Greens Traction and Displacement matrices on boundray
+    ## function to assemble the Greens velocities and pressure matrices on boundray
 
     MatG = zeros(Lchf,size(LNodes,1),1,nkx);
     MatH = zeros(Lchf,size(LNodes,1),1,nkx);
@@ -338,7 +338,7 @@ function AcBndIntEqnInt(Vs,Pn,Vn,Lchf,CPntId,LNodes,LConM,nkx)
     Pn = reshape(Pn,Lchf,2,size(LConM,1),nkx);
     Vn = reshape(Vn,Lchf,2,size(LConM,1),nkx);
 
-    # Assembling the Green's Traction and Displacement Matrices
+    # Assembling the Green's velocities and pressure Matrices
     MatI = zeros(Lchf,size(LNodes,1));
 
     for i = 1:size(LConM,1)
@@ -363,7 +363,7 @@ end
 
 
 function AcBndIntEqnMat(c,n,w,kx,xi,wf,phi,Y,Z,Ny,Nz,Us0,jacobi,nodes,LPnt,LConM,LNodes)
-    ## function to make the Greens Traction and Displacement matrices on boundary
+    ## function to make the Greens velocities and pressure matrices on boundary
 
     nkx = length(kx); kx = kx'; w=w'; # f and kx needs to be a column vector
     Jacobi=repeat(jacobi,1,1,1,nkx);
@@ -402,19 +402,19 @@ function AcBndIntEqnMat(c,n,w,kx,xi,wf,phi,Y,Z,Ny,Nz,Us0,jacobi,nodes,LPnt,LConM
         P = reshape(Ps4D[:,:,:,ibs],1, 1, nkx*size(LConM,1)*n);
         V = AcFullSpace2dot5DBEMvelocity(Vs4D[:,:,:,ibs],yrels,zrels,rm,nys,nzs);
 
-        # reshaping greens displacement vector
+        # reshaping greens pressure vector
         Pr = reshape(P[1,1,:],nkx,n,1,size(LConM,1)) ;
         Pr = permute(Pr,[2 3 4 1]);
 
-        # reshaping greens traction vector
+        # reshaping greens velocities vector
         Vr = reshape(V[1,1,:],nkx,n,1,size(LConM,1)) ;
         Vr = permute(Vr,[2 3 4 1]);
 
-        # vectors for greens displacements on nodes of element
+        # vectors for greens pressure on nodes of element
         Pr1 = zeros(1,1,size(LConM,1),nkx) ;
         Pr2 = zeros(1,1,size(LConM,1),nkx) ;
 
-        # vectors for greens tractions on nodes of element
+        # vectors for greens velocities on nodes of element
         Vr1 = zeros(1,1,size(LConM,1),nkx) ;
         Vr2 = zeros(1,1,size(LConM,1),nkx) ;
 
@@ -425,9 +425,9 @@ function AcBndIntEqnMat(c,n,w,kx,xi,wf,phi,Y,Z,Ny,Nz,Us0,jacobi,nodes,LPnt,LConM
         # Greens displacemnet matrix element computed at second nodal point for all elements
         Pr2[:,:,:,:] = mtimesx(wf,(phi[:,2,:,:].*Pr[:,:,:,:].*Jacobi[:,:,:,:]));
 
-        # Greens traction matrix element computed at first nodal point for all elements
+        # Greens velocities matrix element computed at first nodal point for all elements
         Vr1[:,:,:,:] = mtimesx(wf,(phi[:,1,:,:].*Vr[:,:,:,:].*Jacobi[:,:,:,:]));
-        # Greens traction matrix element computed at second nodal point for all elements
+        # Greens velocities matrix element computed at second nodal point for all elements
         Vr2[:,:,:,:] = mtimesx(wf,(phi[:,2,:,:].*Vr[:,:,:,:].*Jacobi[:,:,:,:]));
 
         ## singular Integration
@@ -456,7 +456,7 @@ function AcBndIntEqnMat(c,n,w,kx,xi,wf,phi,Y,Z,Ny,Nz,Us0,jacobi,nodes,LPnt,LConM
                 V0sr1 = mtimesx(wf[:,:,ElemId[j,i],:],(mphi[:,1,:,:].*(Vmsr).*Jacobi[:,:,ElemId[j,i],:])) ;
                 V0sr2 = mtimesx(wf[:,:,ElemId[j,i],:],(mphi[:,2,:,:].*(Vmsr).*Jacobi[:,:,ElemId[j,i],:])) ;
 
-                # singular Greens tractions
+                # singular Greens velocities
                 Vr1[:,:,ElemId[j,i],:] = Vdr1+V0sr1 ;
                 Vr2[:,:,ElemId[j,i],:] = Vdr2+V0sr2 ;
             end
